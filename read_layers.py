@@ -117,26 +117,27 @@ class LayerLoader(object):
 
 
 class TileGenerator(object):
-    def __init__(self, layer, width=None, height=None, tile_size=None, scale=0):
+    def __init__(self, layer, width=None, height=None, tile_size=None, zoom_step=None, scale=-1):
         self.layer = layer
         self.size = (self.layer.width if width is None else width,
                      self.layer.height if height is None else height)
         self.tile_size = 256 if tile_size is None else tile_size
+        self.zoom_step = 2.0 if zoom_step is None else float(zoom_step)
         self.scale = scale
 
     def create_tiles(self, path):
         # calculate how many zoom levels we need by getting the largest number with
         # 2 ** max_zoom_level >= max(layer_width / tile_size, layer_height / tile_size)
         max_zoom_level = max([
-            int_ceil(math.log(float(self.size[0]) / self.tile_size, 2)),
-            int_ceil(math.log(float(self.size[1]) / self.tile_size, 2))
+            int_ceil(math.log(float(self.size[0]) / self.tile_size, self.zoom_step)),
+            int_ceil(math.log(float(self.size[1]) / self.tile_size, self.zoom_step))
         ])
 
         if self.scale >= 0:
-            nice_size = self.tile_size * (2 ** max_zoom_level)
+            nice_size = self.tile_size * (self.zoom_step ** max_zoom_level)
             prescale = float(nice_size) / self.size[self.scale]
             maybe_greater_zoom_level = int_ceil(math.log(prescale * self.size[1 - self.scale]
-                                                / self.tile_size, 2))
+                                                         / self.tile_size, self.zoom_step))
             if maybe_greater_zoom_level > max_zoom_level:
                 max_zoom_level = maybe_greater_zoom_level
         else:
@@ -151,7 +152,7 @@ class TileGenerator(object):
         layer_transform = cairo.Matrix(xx=prescale, yy=prescale) # Scale by Prescale
 
         for zoom_level in range(max_zoom_level + 1):
-            zoom_factor = 0.5 ** zoom_level
+            zoom_factor = self.zoom_step ** -zoom_level
             tiles_x = int_ceil(zoom_factor * scaled_size[0] / self.tile_size)
             tiles_y = int_ceil(zoom_factor * scaled_size[1] / self.tile_size)
             zoom_level_transform = layer_transform * cairo.Matrix(xx=zoom_factor, yy=zoom_factor)

@@ -24,26 +24,81 @@ def makedirs(dirs):
         pass
     os.makedirs(dirs)
 
+
 class Layer(object):
-    def __init__(self, name, surface):
-        self.name = name
-        self._surface = surface
+    def __init__(self, info, path):
+        self.name = info.get('name', None)
+        if self.name is None:
+            self.name = os.path.splitext(os.path.basename(path))[0]
+
+        self._scale = info.get('scale', 1.0)
+        self._x_offset = info.get('x-offset', 0.0)
+        self._y_offset = info.get('y-offset', 0.0)
+
+        self._load_file(path)
 
     @property
     def width(self):
-        return self._surface.get_width()
+        return self._x_offset + (self._orig_width * self._scale)
 
     @property
     def height(self):
-        return self._surface.get_height()
+        return self._y_offset + (self._orig_height * self._scale)
 
     def draw(self, context):
-        context.set_source_surface(self._surface)
+        context.transform(cairo.Matrix(x0=self._x_offset, y0=self._y_offset))
+        context.transform(cairo.Matrix(xx=self._scale, yy=self._scale))
+
+    def _load_file(self, path):
+        raise NotImplementedError
+
+
+class PdfLayer(Layer):
+    def _load_file(self, path):
+        from gi.repository import Poppler
+        document = Poppler.Document.new_from_file('file://{0}'.format(path), None)
+        self._page = document.get_page(0)
+
+    @property
+    def _orig_width(self):
+        return self._page.get_size()[0]
+
+    @property
+    def _orig_height(self):
+        return self._page.get_size()[1]
+
+    def draw(self, context):
+        super(PdfLayer, self).draw(context)
+        self._page.render(context)
+
+
+class PngLayer(Layer):
+    def _load_file(self, path):
+        self._image = cairo.ImageSurface.create_from_png(path)
+
+    @property
+    def _orig_width(self):
+        return self._image.get_width()
+
+    @property
+    def _orig_height(self):
+        return self._image.get_height()
+
+    def draw(self, context):
+        super(PngLayer, self).draw(context)
+        context.set_source_surface(self._image)
         context.paint()
 
-class LayerReader(object):
-    def __init__(self, layer_type=None):
-        self.layer_type = Layer if layer_type is None else layer_type
+
+class LayerLoader(object):
+    def load(self, layer_path):
+        layers = []
+        for layer_file in sorted(os.listdir(layer_path)):
+            if layer_file.endswith('.txt'):
+                continue
+            layer_file = os.path.join(layer_path, layer_file)
+            layers.append(self.read(layer_file))
+        return layers
 
     def read(self, path):
         info_file = '{0}.txt'.format(path)
@@ -54,59 +109,12 @@ class LayerReader(object):
             info = {}
 
         if path.endswith('.pdf'):
-            from gi.repository import Poppler
-            document = Poppler.Document.new_from_file('file://{0}'.format(path), None)
-            page = document.get_page(0)
-            orig_width, orig_height = page.get_size()
-
-            def draw_layer(context):
-                page.render(context)
+            return PdfLayer(info, path)
         elif path.endswith('.png'):
-            image = cairo.ImageSurface.create_from_png(path)
-            orig_width, orig_height = image.get_width(), image.get_height()
-
-            def draw_layer(context):
-                context.set_source_surface(image)
-                context.paint()
+            return PngLayer(info, path)
         else:
             raise RuntimeError("Unsupported Format for '{0}'".format(path))
 
-        layer_name = info.get('name', None)
-        if layer_name is None:
-            layer_name = os.path.splitext(os.path.basename(path))[0]
-
-        scale = info.get('scale', 1.0)
-        x_offset = info.get('x-offset', 0.0)
-        y_offset = info.get('y-offset', 0.0)
-
-        width = int(orig_width * scale + x_offset)
-        height = int(orig_height * scale + y_offset)
-
-        layer_surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, width, height)
-        layer_context = cairo.Context(layer_surface)
-
-        # Init surface to white
-        layer_context.set_source_rgba(1.0, 1.0, 1.0, 1.0)
-        layer_context.paint()
-
-        layer_context.translate(x_offset, y_offset)
-        layer_context.scale(scale, scale)
-
-        draw_layer(layer_context)
-        return self.layer_type(layer_name, layer_surface)
-
-class LayerLoader(object):
-    def __init__(self, reader=None):
-        self.reader = LayerReader() if reader is None else reader
-
-    def load(self, layer_path):
-        layers = []
-        for layer_file in sorted(os.listdir(layer_path)):
-            if layer_file.endswith('.txt'):
-                continue
-            layer_file = os.path.join(layer_path, layer_file)
-            layers.append(self.reader.read(layer_file))
-        return layers
 
 class TileGenerator(object):
     def __init__(self, layer, width=None, height=None, tile_size=None, scale=0):
@@ -156,12 +164,13 @@ class TileGenerator(object):
                     tile_path = os.path.join(path, str(max_zoom_level - zoom_level), str(x), '{0}.png'.format(y))
                     tile_transform = column_transform * cairo.Matrix(y0=-self.tile_size * y)
                     tile_context.set_matrix(tile_transform)
-                    print "Matrix for %s is %r" % (tile_path, tile_context.get_matrix())
 
                     tile_context.set_source_rgba(1.0, 1.0, 1.0, 1.0)
                     tile_context.paint()
                     layer.draw(tile_context)
+
                     tile_surface.write_to_png(tile_path)
+
 
 
 if __name__ == '__main__':

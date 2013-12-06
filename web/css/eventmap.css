@@ -1,0 +1,21 @@
+html, body {
+  height: 100%;
+}
+
+#main {
+  width: 70%;
+  height: 100%;
+  background-color: #f00;
+  float: left;
+}
+
+#sidebar {
+  width: 30%;
+  height: 100%;
+  background-color: #00f;
+  float: right;
+}
+
+#map {
+  height: 100%;
+}

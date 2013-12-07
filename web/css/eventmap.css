@@ -1,21 +1,28 @@
 html, body {
   height: 100%;
+  padding: 0px;
+  margin: 0px;
+  overflow: hidden;
 }
 
-#main {
-  width: 70%;
+#main, #map {
   height: 100%;
-  background-color: #f00;
-  float: left;
+  z-index: 0;
+  display: block;
+  position: relative;
 }
 
 #sidebar {
-  width: 30%;
-  height: 100%;
+  position: absolute;
   background-color: #00f;
-  float: right;
-}
-
-#map {
-  height: 100%;
+  border-radius: 8px;
+  -moz-border-radius: 8px;
+  -webkit-border-radius: 8px;
+  margin: 5px;
+  padding: 10px;
+  width: 390px;
+  left: 7px;
+  top: 90px;
+  bottom: 9px;
+  display: none;
 }

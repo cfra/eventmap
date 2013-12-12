@@ -3,6 +3,20 @@ var draw_control;
 var layers = {};
 var recorded_obj;
 
+/* Functionality of (re)naming a marker - if I understood how objects worked
+ * in javascript, this should probably be one. :/
+ */
+function rename_marker(marker) {
+	var label_text;
+	if (marker.options.label_text === undefined)
+		label_text = '';
+	else
+		label_text = marker.options.label_text;
+
+	marker.options.label_text = prompt("Please enter name", label_text);
+	marker.updateLabelContent(marker.options.label_text);
+}
+
 /* Functionality of moving a marker - if I understood how objects worked
  * in javascript, this should probably be one. :/
  */
@@ -45,12 +59,28 @@ function move_marker(marker) {
 	move_marker_enable_events();
 }
 
+/* other functionality */
+var marker_labels_no_hide = false;
+function marker_labels_calc_nohide(e) {
+	marker_labels_no_hide = (map.getZoom() >= 3);
+	$.each(layers, function(layer_name, layer_group) {
+		var drawing_layer;
+
+		drawing_layer = layer_group.getLayers()[1]
+		$.each(drawing_layer.getLayers(), function(marker_index, marker) {
+			marker.setLabelNoHide(marker_labels_no_hide);
+		});
+	});
+}
+
 $(function() {
 	map = L.map('map', {
 		center: new L.LatLng(70,-50),
 		contextmenu: true,
 		zoom: 2
 	});
+
+	map.on('zoomend', marker_labels_calc_nohide);
 
 	draw_control = new L.Control.Draw({
 	});
@@ -60,9 +90,13 @@ $(function() {
 		var created_object_type = e.layerType;
 		var created_object = e.layer;
 
-		if (created_object_type === 'marker') {
-			created_object.bindPopup('A popup!');
+		if (created_object_type !== 'marker') {
+			return;
 		}
+
+		created_object.bindLabel('', {
+			noHide: marker_labels_no_hide
+		});
 
 		$.each(layers, function(layer_name, layer_object) {
 			if (!map.hasLayer(layer_object))
@@ -74,6 +108,12 @@ $(function() {
 					text: 'Move',
 					callback: function() {
 						move_marker(created_object);
+					}
+				},
+				{
+					text: 'Rename',
+					callback: function() {
+						rename_marker(created_object);
 					}
 				}
 			];
@@ -96,9 +136,9 @@ $(function() {
 			created_object._initContextMenu();
 
 			layer_object.getLayers()[1].addLayer(created_object);
-			recorded_obj = created_object;
 			return false;
 		});
+		rename_marker(created_object);
 	});
 
 	$.getJSON('js/layers.json', function(data) {

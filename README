@@ -1,0 +1,29 @@
+Eventmap
+========
+
+This package is intended to allow keeping track of equipment
+deployed at an event. Right now it's fairly basic, e.g. it doesn't
+support multiple types of equipment.
+
+Usage
+=====
+
+1. Setting up layers
+
+It is assumed that you are on a terrain that might have multiple
+floors. You can input floorplans as pdf or png into the layers
+directory. Let your layer be called floor_1.pdf you can optionally
+supply meta information for that layer by adding a file floor_1.pdf.txt.
+There you can e.g. provide a name for that layer or describe how it
+should be scaled translated which allows you e.g. to align multiple floorplans.
+
+2. Generating layer information and tilesets
+
+Run the read_layers.py script. It will look for layers in the layers directory,
+render tilesets for those layers and generate a json document providing information
+about the available layers.
+
+3. Run the server
+
+Run the run_map.py script. It will run a webservice with a map where you
+can enter/edit/view deployed equipment.

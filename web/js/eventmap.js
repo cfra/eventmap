@@ -2,19 +2,168 @@ var map;
 var draw_control;
 var layers = {};
 var recorded_obj;
+var marker_store = {};
+var marker_store_sync_id;
+
+function eventmap_send_update() {
+	var update_doc = {
+		'sync-id': marker_store_sync_id,
+		'markers': {}
+	};
+
+	$.each(marker_store, function(marker_name, marker) {
+		update_doc.markers[marker_name] = {};
+
+		var marker_info = update_doc.markers[marker_name];
+
+		marker_info.lat = marker.getLatLng().lat;
+		marker_info.lng = marker.getLatLng().lng;
+		marker_info.layer = marker.options.layer_name;
+	});
+
+	$.ajax({
+		url: 'api/markers/post',
+		type: 'POST',
+		contentType: 'application/json',
+		data: JSON.stringify(update_doc),
+		processData: false,
+		dataType: 'json'
+	});
+}
+
+function eventmap_process_update(data) {
+	if (typeof data == "string")
+		data = JSON.parse(data);
+	marker_store_sync_id = data['sync-id'];
+	$.each(data['markers'], function(marker_name, marker_info) {
+		if (marker_name in marker_store) {
+			var marker = marker_store[marker_name];
+			var marker_pos = marker.getLatLng();
+
+			if (marker_pos.lat != marker_info.lat
+			    || marker_pos.lng != marker_info.lng)
+				marker.setLatLng([marker_info.lat, marker_info.lng]);
+
+			if (marker.options.layer_name != marker_info.layer) {
+				var old_lg = layers[marker.options.layer_name];
+				var new_lg = layers[marker_info.layer];
+
+				var old_draw = old_lg.getLayers()[1];
+				var new_draw = new_lg.getLayers()[1];
+
+				old_draw.removeLayer(marker);
+				new_draw.addLayer(marker);
+				marker.options.layer_name = marker_info.layer;
+			}
+			marker.options.sync_id = marker_store_sync_id;
+			console.log("Kept marker '" + marker_name + "'.");
+		} else {
+			var marker = L.marker([marker_info.lat, marker_info.lng]);
+			
+			marker.bindLabel('', {
+				noHide: marker_labels_no_hide
+			});
+
+			add_contextmenu(marker);
+
+			marker.options.label_text = marker_name;
+			marker.updateLabelContent(marker.options.label_text);
+			marker_store[marker_name] = marker;
+
+			marker.options.layer_name = marker_info.layer
+			layers[marker_info.layer].getLayers()[1].addLayer(marker);
+			marker.options.sync_id = marker_store_sync_id;
+			console.log("Added marker '" + marker_name + "'.");
+		}
+	});
+
+	for (var marker_name in marker_store) {
+		if (marker_store[marker_name].options.sync_id ==
+				marker_store_sync_id)
+			continue;
+
+		var marker = marker_store[marker_name];
+		layers[marker.options.layer_name].getLayers()[1].removeLayer(marker);
+		delete marker_store[marker_name];
+		console.log("Removed marker '" + marker_name + "'.");
+	}
+
+	(function longpoll() {
+		$.ajax({
+			url: 'api/markers/poll/' + marker_store_sync_id,
+			timeout: 600000
+		}).done(eventmap_process_update).fail(function() {
+			setTimeout(longpoll, 10000);
+		});
+	})();
+}
+
+function add_contextmenu(marker) {
+	marker.options.contextmenu = true;
+	marker.options.contextmenuItems = [
+		{
+			text: 'Move',
+			callback: function() {
+				move_marker(marker);
+			}
+		},
+		{
+			text: 'Rename',
+			callback: function() {
+				rename_marker(marker);
+			}
+		}
+	];
+	$.each(layers, function(layer_name, layer_object) {
+		marker.options.contextmenuItems.push({
+			text: 'Send to ' + layer_name,
+			callback: function() {
+				$.each(layers, function(key, value) {
+					map.removeLayer(value);
+					drawing_layer = value.getLayers()[1];
+					if (drawing_layer.hasLayer(marker))
+						drawing_layer.removeLayer(marker);
+				});
+				map.addLayer(layer_object);
+				layer_object.getLayers()[1].addLayer(marker);
+				marker.options.layer_name = layer_name;
+				eventmap_send_update();
+			}
+		})
+	});
+	marker._initContextMenu();
+}
 
 /* Functionality of (re)naming a marker - if I understood how objects worked
  * in javascript, this should probably be one. :/
  */
 function rename_marker(marker) {
 	var label_text;
+	var new_label_text;
+
 	if (marker.options.label_text === undefined)
 		label_text = '';
 	else
 		label_text = marker.options.label_text;
 
-	marker.options.label_text = prompt("Please enter name", label_text);
+	do {
+		new_label_text = prompt("Please enter name", label_text);
+		if (new_label_text in marker_store
+		    && marker_store[new_label_text] !== marker) {
+			alert("This name is not unique!");
+		} else {
+			break;
+		}
+	} while (1);
+
+	if (marker.options.label_text !== undefined)
+		delete marker_store[label_text]
+
+	marker.options.label_text = new_label_text;
 	marker.updateLabelContent(marker.options.label_text);
+
+	marker_store[new_label_text] = marker
+	eventmap_send_update();
 }
 
 /* Functionality of moving a marker - if I understood how objects worked
@@ -43,7 +192,7 @@ function move_marker_disable_events() {
 
 function move_marker_commit(e) {
 	move_marker_disable_events();
-	/* notify about editing */
+	eventmap_send_update();
 }
 
 function move_marker_keyup(e) {
@@ -102,43 +251,14 @@ $(function() {
 			if (!map.hasLayer(layer_object))
 				return true;
 
-			created_object.options.contextmenu = true;
-			created_object.options.contextmenuItems = [
-				{
-					text: 'Move',
-					callback: function() {
-						move_marker(created_object);
-					}
-				},
-				{
-					text: 'Rename',
-					callback: function() {
-						rename_marker(created_object);
-					}
-				}
-			];
-			$.each(layers, function(layer_name, layer_object) {
-				created_object.options.contextmenuItems.push({
-					text: 'Send to ' + layer_name,
-					callback: function() {
-						$.each(layers, function(key, value) {
-							map.removeLayer(value);
-							drawing_layer = value.getLayers()[1];
-							if (drawing_layer.hasLayer(created_object))
-								drawing_layer.removeLayer(created_object);
-						});
-						map.addLayer(layer_object);
-						layer_object.getLayers()[1].addLayer(created_object);
-						/* possibly notify about move */
-					}
-				})
-			});
-			created_object._initContextMenu();
+			add_contextmenu(created_object);
 
 			layer_object.getLayers()[1].addLayer(created_object);
+			created_object.options.layer_name = layer_name;
 			return false;
 		});
 		rename_marker(created_object);
+		/* update will be sent by "rename_marker" */
 	});
 
 	$.getJSON('js/layers.json', function(data) {
@@ -169,5 +289,11 @@ $(function() {
 			}
 		});
 		L.control.layers(layers, {}).addTo(map);
+
+		$.ajax({
+			url: 'api/markers/get'
+		}).done(eventmap_process_update).fail(function() {
+			alert("Couldn't load marker info from server!");
+		});
 	});
 });

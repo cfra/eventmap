@@ -92,6 +92,8 @@ class EventMapMarkerApi(object):
             if self.marker_doc.cur['sync-id'] != doc['sync-id']:
                 raise cherrypy.HTTPError(503, "Sorry, but the server database changed in between.")
             self.marker_doc.set_data(data)
+        cherrypy.response.headers['Content-Type']= 'application/json'
+        return '{}'
 
 class EventMapApi(object):
     def __init__(self, path):

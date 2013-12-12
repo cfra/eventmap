@@ -28,6 +28,8 @@ function eventmap_send_update() {
 		data: JSON.stringify(update_doc),
 		processData: false,
 		dataType: 'json'
+	}).fail(function(){
+		alert("Couldn't send update to server. It is not saved.");
 	});
 }
 
@@ -235,6 +237,7 @@ function marker_labels_calc_nohide(e) {
 }
 
 $(function() {
+	$("#progress").html("Initializing map...");
 	map = L.map('map', {
 		center: new L.LatLng(70,-50),
 		contextmenu: true,
@@ -318,7 +321,9 @@ $(function() {
 		/* update will be sent by "rename_marker" */
 	});
 
+	$("#progress").html("Retrieving layer info...");
 	$.getJSON('js/layers.json', function(data) {
+		$("#progress").html("Creating layers...");
 		var first_layer = true;
 		$.each(data, function(layer_index, layer_info) {
 			var layer_path;
@@ -352,10 +357,19 @@ $(function() {
 		});
 		layer_control.addTo(map);
 
+		$("#progress").html("Loading marker info...");
 		$.ajax({
 			url: 'api/markers/get'
-		}).done(eventmap_process_update).fail(function() {
-			alert("Couldn't load marker info from server!");
+		}).done(function(data) {
+			$("#progress").html("Processing marker info...");
+			eventmap_process_update(data);
+			$("#progress").html("Loading complete.");
+			setTimeout(function() {
+				$("#overlay").hide();
+			}, 300);
+		}).fail(function() {
+			$("#progress").html("Error loading marker info," +
+				            " please retry.");
 		});
 	});
 });

@@ -5,6 +5,30 @@ html, body {
   overflow: hidden;
 }
 
+#overlay {
+  position: absolute;
+  top: 0px;
+  left: 0px;
+  right: 0px;
+  bottom: 0px;
+  z-index: 1000000;
+  background-color: rgba(0,0,0,0.85);
+  text-align: center;
+  font-family: sans-serif;
+}
+
+#overlay p {
+  color: #ffffee;
+}
+
+p.huge {
+  font-size: 300%;
+}
+
+#progress {
+  font-size: 120%;
+}
+
 #main, #map {
   height: 100%;
   z-index: 0;

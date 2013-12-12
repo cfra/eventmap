@@ -10,52 +10,44 @@ from cStringIO import StringIO
 import hashlib
 import threading
 import json
+import time
 
 import cherrypy
 
 class SynchronizedJSON(object):
     def __init__(self, filename):
         self._filename = filename
+        self._new = {}
         if os.path.exists(self._filename):
             with open(self._filename, 'rb') as f:
-                self._data = f.read()
+                self._new['data'] = f.read()
         else:
-            self._data = '{}'
+            self._new['data'] = '{}'
 
-        self._sync_id = ''
         self._update_sync_id()
+        self.cur = self._new
 
         self.lock = threading.Lock()
-        self.cond = threading.Condition(self.lock)
 
     def _update_sync_id(self):
-        doc = json.loads(self._data)
+        doc = json.loads(self._new['data'])
         if 'sync-id' in doc:
             del doc['sync-id']
         hashed_data = json.dumps(doc)
         h = hashlib.sha256()
         h.update(hashed_data)
         doc['sync-id'] = h.hexdigest()
-        self._data = json.dumps(doc)
-        self._sync_id = h.hexdigest()
-
-    @property
-    def data(self):
-        assert self.lock.locked()
-        return self._data
-
-    @property
-    def sync_id(self):
-        assert self.lock.locked()
-        return self._sync_id
+        self._new['data'] = json.dumps(doc)
+        self._new['sync-id'] = h.hexdigest()
 
     def set_data(self, data):
         assert self.lock.locked()
 
-        if self._data == data:
+        if self.cur['data'] == data:
             return
 
-        self._data = data
+        self._new = {}
+        self._new['data'] = data
         self._update_sync_id()
 
         with open(self._filename + '.new', 'wb') as f:
@@ -64,7 +56,7 @@ class SynchronizedJSON(object):
             os.fsync(f.fileno())
         os.rename(self._filename + '.new', self._filename)
 
-        self.cond.notify_all()
+        self.cur = self._new
 
 class EventMapMarkerApi(object):
     def __init__(self, path):
@@ -73,19 +65,21 @@ class EventMapMarkerApi(object):
     @cherrypy.expose
     def get(self):
         cherrypy.response.headers['Content-Type']= 'application/json'
-        with self.marker_doc.lock:
-            return self.marker_doc.data
+        return self.marker_doc.cur['data']
 
     @cherrypy.expose
     def poll(self, current):
         cherrypy.response.headers['Content-Type']= 'application/json'
-        with self.marker_doc.lock:
-            while self.marker_doc.sync_id == current:
-                self.marker_doc.cond.wait(2)
-                if cherrypy.engine.state != cherrypy.engine.states.STARTED:
-                    break
+        counter = 0
+        while self.marker_doc.cur['sync-id'] == current:
+            time.sleep(1)
+            counter += 1
+            if counter >= 20:
                 yield ' '
-            yield self.marker_doc.data
+                counter = 0
+            if cherrypy.engine.state != cherrypy.engine.states.STARTED:
+                break
+        yield self.marker_doc.cur['data']
 
     @cherrypy.expose
     def post(self):
@@ -94,8 +88,9 @@ class EventMapMarkerApi(object):
 
         doc = json.loads(data)
 
-        # Check sync-id
         with self.marker_doc.lock:
+            if self.marker_doc.cur['sync-id'] != doc['sync-id']:
+                raise cherrypy.HTTPError(503, "Sorry, but the server database changed in between.")
             self.marker_doc.set_data(data)
 
 class EventMapApi(object):

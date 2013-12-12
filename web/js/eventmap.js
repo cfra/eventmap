@@ -238,14 +238,59 @@ $(function() {
 	map = L.map('map', {
 		center: new L.LatLng(70,-50),
 		contextmenu: true,
+		continuousWorld: true,
 		zoom: 2
 	});
 
 	map.on('zoomend', marker_labels_calc_nohide);
 
 	draw_control = new L.Control.Draw({
+		draw: {
+			polyline: false,
+			polygon: false,
+			rectangle: false,
+			circle: false,
+		}
 	});
 	map.addControl(draw_control);
+
+	var search_control = new L.Control.Search({
+		callData: function(input, callback) {
+			var input_lower = input.toLowerCase();
+			var records = [];
+
+			for (var key in marker_store) {
+				if (key.toLowerCase().indexOf(input_lower) != 0)
+					continue;
+
+				var marker = marker_store[key];
+				records.push({
+					title: key,
+					loc: marker.getLatLng()
+				});
+			}
+			records.sort(function(a,b) {
+				if (a.title < b.title)
+					return -1;
+				if (a.title > b.title)
+					return 1;
+				return 0;
+			});
+			callback(records);
+		}
+	});
+	search_control.on('search_locationfound', function(location_info) {
+		var marker = marker_store[location_info.text];
+		for (var key in layers) {
+			map.removeLayer(layers[key]);
+		}
+		map.addLayer(layers[marker.options.layer_name]);
+		if (search_control._markerLoc !== undefined) {
+			search_control._markerLoc.show();
+			search_control._markerLoc.animate();
+		}
+	});
+	map.addControl(search_control);
 
 	map.on('draw:created', function (e) {
 		var created_object_type = e.layerType;
@@ -300,7 +345,12 @@ $(function() {
 				first_layer = false;
 			}
 		});
-		L.control.layers(layers, {}).addTo(map);
+		var layer_control = L.control.layers(layers, {});
+		map.on('baselayerchange', function() {
+			if (search_control._markerLoc !== undefined)
+				search_control._markerLoc.hide();
+		});
+		layer_control.addTo(map);
 
 		$.ajax({
 			url: 'api/markers/get'

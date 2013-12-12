@@ -37,7 +37,7 @@ class SynchronizedJSON(object):
         h = hashlib.sha256()
         h.update(hashed_data)
         doc['sync-id'] = h.hexdigest()
-        self._new['data'] = json.dumps(doc)
+        self._new['data'] = json.dumps(doc, indent=4)
         self._new['sync-id'] = h.hexdigest()
 
     def set_data(self, data):
@@ -51,7 +51,7 @@ class SynchronizedJSON(object):
         self._update_sync_id()
 
         with open(self._filename + '.new', 'wb') as f:
-            f.write(data)
+            f.write(self._new['data'])
             f.flush()
             os.fsync(f.fileno())
         os.rename(self._filename + '.new', self._filename)

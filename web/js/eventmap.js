@@ -98,6 +98,12 @@ function eventmap_process_update(data) {
 	})();
 }
 
+function delete_marker(marker) {
+	layers[marker.options.layer_name].getLayers()[1].removeLayer(marker);
+	delete marker_store[marker.options.label_text];
+	eventmap_send_update();
+}
+
 function add_contextmenu(marker) {
 	marker.options.contextmenu = true;
 	marker.options.contextmenuItems = [
@@ -112,7 +118,13 @@ function add_contextmenu(marker) {
 			callback: function() {
 				rename_marker(marker);
 			}
-		}
+		},
+		{
+			text: 'Delete',
+			callback: function() {
+				delete_marker(marker);
+			}
+		},
 	];
 	$.each(layers, function(layer_name, layer_object) {
 		marker.options.contextmenuItems.push({

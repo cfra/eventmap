@@ -36,6 +36,7 @@ class Layer(object):
         self._scale = info.get('scale', 1.0)
         self._x_offset = info.get('x-offset', 0.0)
         self._y_offset = info.get('y-offset', 0.0)
+        self._rotate = info.get('rotate', 0.0)
 
         self._load_file(path)
 
@@ -50,6 +51,7 @@ class Layer(object):
     def draw(self, context):
         context.transform(cairo.Matrix(x0=self._x_offset, y0=self._y_offset))
         context.transform(cairo.Matrix(xx=self._scale, yy=self._scale))
+        context.transform(cairo.Matrix.init_rotate(self._rotate))
 
     def _load_file(self, path):
         raise NotImplementedError

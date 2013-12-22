@@ -33,11 +33,17 @@ function eventmap_send_update() {
 	});
 }
 
+function LoadingException(message) {
+	this.message = message;
+	this.name = "LoadingException";
+}
+
 function eventmap_process_update(data) {
 	if (typeof data == "string")
 		data = JSON.parse(data);
 	marker_store_sync_id = data['sync-id'];
-	$.each(data['markers'], function(marker_name, marker_info) {
+	if (data['markers'] !== undefined)
+	    $.each(data['markers'], function(marker_name, marker_info) {
 		if (marker_name in marker_store) {
 			var marker = marker_store[marker_name];
 			var marker_pos = marker.getLatLng();
@@ -61,7 +67,8 @@ function eventmap_process_update(data) {
 			console.log("Kept marker '" + marker_name + "'.");
 		} else {
 			var marker = L.marker([marker_info.lat, marker_info.lng]);
-			
+			var target_layer_group;
+
 			marker.bindLabel('', {
 				noHide: marker_labels_no_hide
 			});
@@ -72,8 +79,14 @@ function eventmap_process_update(data) {
 			marker.updateLabelContent(marker.options.label_text);
 			marker_store[marker_name] = marker;
 
-			marker.options.layer_name = marker_info.layer
-			layers[marker_info.layer].getLayers()[1].addLayer(marker);
+			marker.options.layer_name = marker_info.layer;
+			target_layer_group = layers[marker_info.layer];
+			if (target_layer_group === undefined) {
+				throw new LoadingException("Don't know about layer '"
+						+ marker_info.layer + "'!");
+			}
+
+			target_layer_group.getLayers()[1].addLayer(marker);
 			marker.options.sync_id = marker_store_sync_id;
 			console.log("Added marker '" + marker_name + "'.");
 		}
@@ -362,13 +375,24 @@ $(function() {
 			url: 'api/markers/get'
 		}).done(function(data) {
 			$("#progress").html("Processing marker info...");
-			eventmap_process_update(data);
+			try {
+				eventmap_process_update(data);
+			} catch (e) {
+				if (e instanceof LoadingException) {
+					$("#progress").html("Error: " + e.message);
+				} else {
+					$("#progress").html("Unknown error while "
+						+ "loading marker info.");
+					throw e;
+				}
+				return;
+			}
 			$("#progress").html("Loading complete.");
 			setTimeout(function() {
 				$("#overlay").hide();
 			}, 300);
 		}).fail(function() {
-			$("#progress").html("Error loading marker info," +
+			$("#progress").html("Error retrieving marker info," +
 				            " please retry.");
 		});
 	});

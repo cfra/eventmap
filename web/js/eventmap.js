@@ -335,65 +335,83 @@ $(function() {
 	});
 
 	$("#progress").html("Retrieving layer info...");
-	$.getJSON('js/layers.json', function(data) {
-		$("#progress").html("Creating layers...");
-		var first_layer = true;
-		$.each(data, function(layer_index, layer_info) {
-			var layer_path;
-			var base_layer;
-			var drawing_layer;
-			var layer;
-			
-			layer_path = 'images/tiles/' + layer_info.name
-			        	+ '/{z}/{x}/{y}.png';
-
-			base_layer = L.tileLayer(layer_path, {
-				noWrap: true,
-				continuousWorld: true,
-				maxZoom: layer_info.max_zoom
-			});
-
-			drawing_layer = new L.FeatureGroup();
-
-			layer = L.layerGroup([base_layer, drawing_layer]);
-			layers[layer_info.name] = layer;
-
-			if (first_layer) {
-				map.addLayer(layer);
-				first_layer = false;
-			}
-		});
-		var layer_control = L.control.layers(layers, {});
-		map.on('baselayerchange', function() {
-			if (search_control._markerLoc !== undefined)
-				search_control._markerLoc.hide();
-		});
-		layer_control.addTo(map);
-
-		$("#progress").html("Loading marker info...");
-		$.ajax({
-			url: 'api/markers/get'
-		}).done(function(data) {
-			$("#progress").html("Processing marker info...");
-			try {
-				eventmap_process_update(data);
-			} catch (e) {
-				if (e instanceof LoadingException) {
-					$("#progress").html("Error: " + e.message);
+	$.ajax({
+		url: "js/layers.json",
+		success: function(data) {
+			$("#progress").html("Creating layers...");
+			var first_layer = true;
+			$.each(data, function(layer_index, layer_info) {
+				var layer_path;
+				var layer_options;
+				var base_layer;
+				var drawing_layer;
+				var layer;
+				
+				if (layer_info.url === undefined) {
+					layer_path = 'images/tiles/' + layer_info.name
+							+ '/{z}/{x}/{y}.png';
 				} else {
-					$("#progress").html("Unknown error while "
-						+ "loading marker info.");
-					throw e;
+					layer_path = layer_info.url;
 				}
-				return;
-			}
-			$("#progress").html("Loading complete.");
-			setTimeout(function() {
-				$("#overlay").hide();
-			}, 300);
-		}).fail(function() {
-			$("#progress").html("Error retrieving marker info," +
-				            " please retry.");
-		});
+	
+				if (layer_info.options === undefined) {
+					layer_options = {
+						noWrap: true,
+						continuousWorld: true,
+						maxZoom: layer_info.max_zoom
+					};
+				} else {
+					layer_options = layer_info.options;
+				}
+	
+				base_layer = L.tileLayer(layer_path, layer_options);
+	
+				drawing_layer = new L.FeatureGroup();
+	
+				layer = L.layerGroup([base_layer, drawing_layer]);
+				layers[layer_info.name] = layer;
+	
+				if (first_layer) {
+					map.addLayer(layer);
+					first_layer = false;
+				}
+			});
+			var layer_control = L.control.layers(layers, {});
+			map.on('baselayerchange', function() {
+				if (search_control._markerLoc !== undefined)
+					search_control._markerLoc.hide();
+			});
+			layer_control.addTo(map);
+	
+			$("#progress").html("Loading marker info...");
+			$.ajax({
+				url: 'api/markers/get'
+			}).done(function(data) {
+				$("#progress").html("Processing marker info...");
+				try {
+					eventmap_process_update(data);
+				} catch (e) {
+					if (e instanceof LoadingException) {
+						$("#progress").html("Error: " + e.message);
+					} else {
+						$("#progress").html("Unknown error while "
+							+ "loading marker info.");
+						throw e;
+					}
+					return;
+				}
+				$("#progress").html("Loading complete.");
+				setTimeout(function() {
+					$("#overlay").hide();
+				}, 300);
+			}).fail(function() {
+				$("#progress").html("Error retrieving marker info," +
+					            " please retry.");
+			});
+		},
+		error: function(xhr, status_text, error) {
+			console.log(status_text);
+			console.log(error);
+		}
 	});
 });

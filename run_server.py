@@ -13,6 +13,7 @@ import json
 import time
 
 import cherrypy
+from cherrypy.lib import auth_digest
 
 class SynchronizedJSON(object):
     def __init__(self, filename):
@@ -103,6 +104,9 @@ def test_log(msg, level):
     print "%s, %s" % (msg, level)
 
 if __name__ == '__main__':
+
+    USERS = {'username' : 'password'}
+
     current_dir = os.path.dirname(os.path.abspath(__file__))
     cherrypy.engine.subscribe('log', test_log)
     cherrypy.config.update({
@@ -118,6 +122,10 @@ if __name__ == '__main__':
             'tools.staticdir.on': True,
             'tools.staticdir.dir': os.path.join(current_dir, 'web'),
             'tools.staticdir.index': 'index.html',
+            'tools.auth_digest.on': True,
+            'tools.auth_digest.realm': 'eventmap',
+            'tools.auth_digest.get_ha1': auth_digest.get_ha1_dict_plain(USERS),
+            'tools.auth_digest.key': '640f0d950828cc65'
         }
     })
 

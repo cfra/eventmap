@@ -313,6 +313,9 @@ function marker_labels_calc_nohide(e) {
 
 		drawing_layer = layer_group.getLayers()[1]
 		$.each(drawing_layer.getLayers(), function(marker_index, marker) {
+			if (marker.options.label_text !== undefined
+			    && marker.options.label_text.startsWith("__"))
+				return true;
 			marker.setLabelNoHide(marker_labels_no_hide);
 		});
 	});

@@ -16,9 +16,22 @@ function eventmap_send_update() {
 
 		var marker_info = update_doc.markers[marker_name];
 
-		marker_info.lat = marker.getLatLng().lat;
-		marker_info.lng = marker.getLatLng().lng;
-		marker_info.layer = marker.options.layer_name;
+		if (marker_name.startsWith("__polyline")) {
+			/* Polyline */
+			marker_info.points = [];
+			$.each(marker.getLatLngs(), function(index, point) {
+				marker_info.points.push({
+					lat: point.lat,
+					lng: point.lng
+				});
+			});
+			marker_info.layer = marker.options.layer_name;
+		} else {
+			/* Regular marker */
+			marker_info.lat = marker.getLatLng().lat;
+			marker_info.lng = marker.getLatLng().lng;
+			marker_info.layer = marker.options.layer_name;
+		}
 	});
 
 	$.ajax({
@@ -38,12 +51,46 @@ function LoadingException(message) {
 	this.name = "LoadingException";
 }
 
+function process_polyline_update(marker_name, marker_info) {
+	if (marker_name in marker_store) {
+		var marker = marker_store[marker_name];
+
+		/* TODO: compare array, update only on change*/
+		marker.setLatLngs(marker_info.points);
+		marker.options.sync_id = marker_store_sync_id;
+		console.log("Kept polyline '" + marker_name + "'.");
+	} else {
+		var marker = L.polyline(marker_info.points);
+		var target_layer_group;
+
+		marker.options.label_text = marker_name;
+		marker_store[marker_name] = marker;
+
+		marker.options.layer_name = marker_info.layer;
+		marker.options.label_text = marker_name;
+		target_layer_group = layers[marker_info.layer];
+		if (target_layer_group === undefined) {
+			throw new LoadingException("Don't know about layer '"
+					+ marker_info.layer + "'!");
+		}
+
+		target_layer_group.getLayers()[1].addLayer(marker);
+		marker.options.sync_id = marker_store_sync_id;
+		add_contextmenu(marker);
+		console.log("Added polyline '" + marker_name + "'.");
+	}
+}
+
 function eventmap_process_update(data) {
 	if (typeof data == "string")
 		data = JSON.parse(data);
 	marker_store_sync_id = data['sync-id'];
 	if (data['markers'] !== undefined)
 	    $.each(data['markers'], function(marker_name, marker_info) {
+		if (marker_name.startsWith("__polyline"))
+			return process_polyline_update(marker_name, marker_info);
+
+		/* Regular marker */
 		if (marker_name in marker_store) {
 			var marker = marker_store[marker_name];
 			var marker_pos = marker.getLatLng();
@@ -119,7 +166,25 @@ function delete_marker(marker) {
 	eventmap_send_update();
 }
 
+function add_polyline_contextmenu(marker) {
+	marker.bindContextMenu({
+		contextmenu: true,
+		contextmenuItems: [
+			{
+				text: 'Delete',
+				callback: function() {
+					delete_marker(marker);
+				}
+			}
+		]
+	});
+}
+
 function add_contextmenu(marker) {
+	if (marker.options.label_text !== undefined
+	    && marker.options.label_text.startsWith("__polyline"))
+		return add_polyline_contextmenu(marker);
+
 	marker.options.contextmenu = true;
 	marker.options.contextmenuItems = [
 		{
@@ -175,6 +240,10 @@ function rename_marker(marker) {
 
 	do {
 		new_label_text = prompt("Please enter name", label_text);
+		if (new_label_text.startsWith("__")) {
+			alert("This name is not valid!");
+			continue;
+		}
 		if (new_label_text in marker_store
 		    && marker_store[new_label_text] !== marker) {
 			alert("This name is not unique!");
@@ -249,6 +318,33 @@ function marker_labels_calc_nohide(e) {
 	});
 }
 
+function polyline_added(e) {
+	var created_object_type = e.layerType;
+	var created_object = e.layer;
+
+	$.each(layers, function(layer_name, layer_object) {
+		if (!map.hasLayer(layer_object))
+			return true;
+
+		layer_object.getLayers()[1].addLayer(created_object);
+		created_object.options.layer_name = layer_name;
+
+		var index = 0;
+		var marker_name;
+
+		do {
+			marker_name = "__polyline_" + layer_name + "_" + index;
+			index++;
+		} while (marker_name in marker_store);
+
+		marker_store[marker_name] = created_object;
+		marker.options.label_text = marker_name;
+		add_contextmenu(marker);
+		eventmap_send_update();
+		return false;
+	});
+}
+
 $(function() {
 	$("#progress").html("Initializing map...");
 	map = L.map('map', {
@@ -262,7 +358,7 @@ $(function() {
 
 	draw_control = new L.Control.Draw({
 		draw: {
-			polyline: false,
+			polyline: true,
 			polygon: false,
 			rectangle: false,
 			circle: false,
@@ -276,6 +372,8 @@ $(function() {
 			var records = [];
 
 			for (var key in marker_store) {
+				if (key.startsWith("__polyline"))
+					continue;
 				if (key.toLowerCase().indexOf(input_lower) != 0)
 					continue;
 
@@ -312,7 +410,13 @@ $(function() {
 		var created_object_type = e.layerType;
 		var created_object = e.layer;
 
+		if (created_object_type === 'polyline') {
+			return polyline_added(e);
+		}
+		
 		if (created_object_type !== 'marker') {
+			console.log("Other Type drawn:");
+			console.log(created_object_type);
 			return;
 		}
 

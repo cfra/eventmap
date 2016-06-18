@@ -338,8 +338,8 @@ function polyline_added(e) {
 		} while (marker_name in marker_store);
 
 		marker_store[marker_name] = created_object;
-		marker.options.label_text = marker_name;
-		add_contextmenu(marker);
+		created_object.options.label_text = marker_name;
+		add_contextmenu(created_object);
 		eventmap_send_update();
 		return false;
 	});

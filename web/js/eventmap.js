@@ -1,9 +1,29 @@
 var map;
 var draw_control;
 var layers = {};
+var layer_infos = {};
 var recorded_obj;
 var marker_store = {};
 var marker_store_sync_id;
+
+function active_layer_name() {
+	var layer_found = undefined;
+	$.each(layers, function(layer_name, layer_object) {
+		if (map.hasLayer(layer_object)) {
+			layer_found = layer_name;
+			return false;
+		}
+	});
+	return layer_found;
+}
+
+function active_layer() {
+	return layers[active_layer_name()];
+}
+
+function active_layer_info() {
+	return layer_infos[active_layer_name()];
+}
 
 function eventmap_send_update() {
 	var update_doc = {
@@ -324,29 +344,45 @@ function marker_labels_calc_nohide(e) {
 function polyline_added(e) {
 	var created_object_type = e.layerType;
 	var created_object = e.layer;
+	var layer_name = active_layer_name();
+	var layer = active_layer();
 
-	$.each(layers, function(layer_name, layer_object) {
-		if (!map.hasLayer(layer_object))
-			return true;
+	layer.getLayers()[1].addLayer(created_object);
+	created_object.options.layer_name = layer_name;
 
-		layer_object.getLayers()[1].addLayer(created_object);
-		created_object.options.layer_name = layer_name;
+	var index = 0;
+	var marker_name;
 
-		var index = 0;
-		var marker_name;
+	do {
+		marker_name = "__polyline_" + layer_name + "_" + index;
+		index++;
+	} while (marker_name in marker_store);
 
-		do {
-			marker_name = "__polyline_" + layer_name + "_" + index;
-			index++;
-		} while (marker_name in marker_store);
-
-		marker_store[marker_name] = created_object;
-		created_object.options.label_text = marker_name;
-		add_contextmenu(created_object);
-		eventmap_send_update();
-		return false;
-	});
+	marker_store[marker_name] = created_object;
+	created_object.options.label_text = marker_name;
+	add_contextmenu(created_object);
+	eventmap_send_update();
+	return false;
 }
+
+L.LatLng.prototype.distanceTo = function(other) {
+	var point_t = map.options.crs.latLngToPoint(this, 6);
+	var point_o = map.options.crs.latLngToPoint(L.latLng(other), 6);
+
+	return point_t.distanceTo(point_o);
+}
+
+var old_readable_distance = L.GeometryUtil.readableDistance
+L.GeometryUtil.readableDistance = function(distance, unit) {
+	var divider;
+
+	if (active_layer_info().divider !== undefined)
+		divider = active_layer_info().divider;
+	else
+		divider = 1;
+
+	return old_readable_distance(distance/divider,unit);
+};
 
 $(function() {
 	$("#progress").html("Initializing map...");
@@ -427,16 +463,13 @@ $(function() {
 			noHide: marker_labels_no_hide
 		});
 
-		$.each(layers, function(layer_name, layer_object) {
-			if (!map.hasLayer(layer_object))
-				return true;
+		var layer_name = active_layer_name();
+		var layer = active_layer();
 
-			add_contextmenu(created_object);
+		add_contextmenu(created_object);
 
-			layer_object.getLayers()[1].addLayer(created_object);
-			created_object.options.layer_name = layer_name;
-			return false;
-		});
+		layer.getLayers()[1].addLayer(created_object);
+		created_object.options.layer_name = layer_name;
 		rename_marker(created_object);
 		/* update will be sent by "rename_marker" */
 	});
@@ -464,6 +497,7 @@ $(function() {
 
 			layer = L.layerGroup([base_layer, drawing_layer]);
 			layers[layer_info.name] = layer;
+			layer_infos[layer_info.name] = layer_info;
 
 			if (first_layer) {
 				map.addLayer(layer);

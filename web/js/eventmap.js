@@ -84,6 +84,20 @@ function polyline_set_type(marker, type) {
 	marker.options.type = type;
 }
 
+function polyline_get_length(marker) {
+	var last_node = undefined;
+	var distance = 0.0;
+	$.each(marker.getLatLngs(), function(index, node) {
+		if (last_node === undefined) {
+			last_node = node;
+			return true;
+		}
+		distance += L.latLng(last_node).distanceTo(node);
+		last_node = node;
+	});
+	return distance;
+}
+
 function process_polyline_update(marker_name, marker_info) {
 	if (marker_name in marker_store) {
 		var marker = marker_store[marker_name];
@@ -244,6 +258,13 @@ function add_polyline_contextmenu(marker) {
 				callback: function() {
 					polyline_set_type(marker, "Unknown");
 					eventmap_send_update();
+				}
+			},
+			{
+				text: 'Get length',
+				callback: function() {
+					alert(L.GeometryUtil.readableDistance(
+					      polyline_get_length(marker), true));
 				}
 			}
 		]

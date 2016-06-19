@@ -28,6 +28,7 @@ function active_layer_info() {
 function eventmap_send_update() {
 	var update_doc = {
 		'sync-id': marker_store_sync_id,
+		'version': '23.0',
 		'markers': {}
 	};
 

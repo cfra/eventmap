@@ -92,6 +92,8 @@ class EventMapMarkerApi(object):
         with self.marker_doc.lock:
             if self.marker_doc.cur['sync-id'] != doc['sync-id']:
                 raise cherrypy.HTTPError(503, "Sorry, but the server database changed in between.")
+            if 'version' not in doc or doc['version'] != '23.0':
+                raise cherrypy.HTTPError(503, "Sorry, but your local script is out of date. Please reload.")
             self.marker_doc.set_data(data)
         cherrypy.response.headers['Content-Type']= 'application/json'
         return '{}'

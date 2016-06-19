@@ -558,11 +558,14 @@ $(function() {
 			
 			layer_path = 'images/tiles/' + layer_info.name
 			        	+ '/{z}/{x}/{y}.png';
-
+			var layer_opacity = layer_info.opacity;
+			if (layer_opacity === undefined)
+				layer_opacity = 1.0;
 			base_layer = L.tileLayer(layer_path, {
 				noWrap: true,
 				continuousWorld: true,
-				maxZoom: layer_info.max_zoom
+				maxZoom: layer_info.max_zoom,
+				opacity: layer_opacity
 			});
 
 			drawing_layer = new L.FeatureGroup();

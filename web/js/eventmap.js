@@ -73,10 +73,10 @@ function LoadingException(message) {
 }
 
 var polyline_styles = {
-	"Unknown": { color: 'grey', dashArray: '' },
-	"Power": { color: 'red', dashArray: '' },
-	"Network": { color: 'blue', dashArray: '' },
-	"Wifi": { color: 'blue', dashArray: '1, 10' }
+	"Unknown": { color: '#444444', dashArray: '', opacity: 0.9 },
+	"Power": { color: 'red', dashArray: '', opacity: 0.9 },
+	"Network": { color: 'blue', dashArray: '', opacity: 0.9 },
+	"Wifi": { color: 'blue', dashArray: '1, 10', opacity: 0.9 }
 };
 
 function polyline_set_type(marker, type) {

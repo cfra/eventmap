@@ -46,6 +46,7 @@ function eventmap_send_update() {
 				});
 			});
 			marker_info.layer = marker.options.layer_name;
+			marker_info.type = marker.options.type;
 		} else {
 			/* Regular marker */
 			marker_info.lat = marker.getLatLng().lat;
@@ -71,12 +72,27 @@ function LoadingException(message) {
 	this.name = "LoadingException";
 }
 
+var polyline_styles = {
+	"Unknown": { color: 'grey', dashArray: '' },
+	"Power": { color: 'red', dashArray: '' },
+	"Network": { color: 'blue', dashArray: '' },
+	"Wifi": { color: 'blue', dashArray: '1, 10' }
+};
+
+function polyline_set_type(marker, type) {
+	marker.setStyle(polyline_styles[type]);
+	marker.options.type = type;
+}
+
 function process_polyline_update(marker_name, marker_info) {
 	if (marker_name in marker_store) {
 		var marker = marker_store[marker_name];
 
 		/* TODO: compare array, update only on change*/
 		marker.setLatLngs(marker_info.points);
+		if (marker.options.type != marker_info.type)
+			polyline_set_type(marker, marker_info.type);
+
 		marker.options.sync_id = marker_store_sync_id;
 		console.log("Kept polyline '" + marker_name + "'.");
 	} else {
@@ -95,6 +111,11 @@ function process_polyline_update(marker_name, marker_info) {
 		}
 
 		target_layer_group.getLayers()[1].addLayer(marker);
+		if (marker_info.type !== undefined) {
+			polyline_set_type(marker, marker_info.type);
+		} else {
+			polyline_set_type(marker, "Unknown");
+		}
 		marker.options.sync_id = marker_store_sync_id;
 		add_contextmenu(marker);
 		console.log("Added polyline '" + marker_name + "'.");
@@ -187,6 +208,7 @@ function delete_marker(marker) {
 }
 
 function add_polyline_contextmenu(marker) {
+	/* TODO: Generated menu from polyline styles */
 	marker.bindContextMenu({
 		contextmenu: true,
 		contextmenuItems: [
@@ -194,6 +216,34 @@ function add_polyline_contextmenu(marker) {
 				text: 'Delete',
 				callback: function() {
 					delete_marker(marker);
+				}
+			},
+			{
+				text: 'Power -> Type',
+				callback: function() {
+					polyline_set_type(marker, "Power");
+					eventmap_send_update();
+				}
+			},
+			{
+				text: 'Network -> Type',
+				callback: function() {
+					polyline_set_type(marker, "Network");
+					eventmap_send_update();
+				}
+			},
+			{
+				text: 'Wifi -> Type',
+				callback: function() {
+					polyline_set_type(marker, "Wifi");
+					eventmap_send_update();
+				}
+			},
+			{
+				text: 'Unknown -> Type',
+				callback: function() {
+					polyline_set_type(marker, "Unknown");
+					eventmap_send_update();
 				}
 			}
 		]
@@ -361,6 +411,7 @@ function polyline_added(e) {
 	marker_store[marker_name] = created_object;
 	created_object.options.label_text = marker_name;
 	add_contextmenu(created_object);
+	polyline_set_type(created_object, "Unknown");
 	eventmap_send_update();
 	return false;
 }

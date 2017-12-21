@@ -1,0 +1,8 @@
+cheroot==6.0.0
+CherryPy==13.1.0
+more-itertools==4.0.1
+portend==2.2
+pytz==2017.3
+PyYAML==3.12
+six==1.11.0
+tempora==1.10

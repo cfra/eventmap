@@ -16,6 +16,6 @@ RUN set -x \
 
 VOLUME [ "/srv/eventmap/layers", "/srv/eventmap/data" ]
 
-CMD [ "python", "run_server.py" ]
+CMD [ "python", "run_server.py", "-P" ]
 
 EXPOSE 8023

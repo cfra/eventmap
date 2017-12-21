@@ -11,6 +11,7 @@ import hashlib
 import threading
 import json
 import time
+import sys
 
 import cherrypy
 
@@ -105,10 +106,11 @@ def test_log(msg, level):
     print "%s, %s" % (msg, level)
 
 if __name__ == '__main__':
+    publish = len(sys.argv) >= 2 and sys.argv[1] == '-P'
     current_dir = os.path.dirname(os.path.abspath(__file__))
     cherrypy.engine.subscribe('log', test_log)
     cherrypy.config.update({
-        'server.socket_host': '127.0.0.1',
+        'server.socket_host': '0.0.0.0' if publish else '127.0.0.1',
         'server.socket_port': 8023,
         'server.thread_pool_max': 500,
         'server.thread_pool': 100,
@@ -123,7 +125,8 @@ if __name__ == '__main__':
         }
     })
 
-    cherrypy.tree.mount(EventMapApi(current_dir), '/api', {
+    data_dir = os.path.join(current_dir, 'data') if publish else current_dir
+    cherrypy.tree.mount(EventMapApi(data_dir), '/api', {
         '/': {
             'response.timeout': 600,
             'response.stream': True

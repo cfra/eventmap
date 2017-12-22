@@ -62,6 +62,8 @@ class Layer(object):
 
 class PdfLayer(Layer):
     def _load_file(self, path):
+        import gi
+        gi.require_version('Poppler', '0.18')
         from gi.repository import Poppler
         document = Poppler.Document.new_from_file('file://{0}'.format(path), None)
         self._page = document.get_page(0)
@@ -101,7 +103,8 @@ class LayerLoader(object):
     def load(self, layer_path):
         layers = []
         for layer_file in os.listdir(layer_path):
-            if layer_file.endswith('.txt'):
+            if layer_file.endswith('.txt') \
+                    or layer_file.endswith('.sh'):
                 continue
             layer_file = os.path.join(layer_path, layer_file)
             layers.append(self.read(layer_file))

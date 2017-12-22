@@ -460,10 +460,10 @@ L.GeometryUtil.readableDistance = function(distance, unit) {
 $(function() {
 	$("#progress").html("Initializing map...");
 	map = L.map('map', {
-		center: new L.LatLng(70,-50),
+		center: new L.LatLng(80,-120),
 		contextmenu: true,
 		continuousWorld: true,
-		zoom: 2
+		zoom: 4
 	});
 
 	map.on('zoomend', marker_labels_calc_nohide);

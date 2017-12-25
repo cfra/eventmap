@@ -16,8 +16,8 @@ RUN set -x \
 		python-wheel \
 	&& pip install -r requirements.txt
 
-VOLUME [ "/srv/eventmap/layers", "/srv/eventmap/data" ]
+VOLUME [ "/srv/eventmap/data" ]
 
-CMD [ "./docker_start.sh" ]
+CMD [ "python", "run_server.py", "-P" ]
 
 EXPOSE 8023

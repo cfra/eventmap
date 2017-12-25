@@ -283,24 +283,27 @@ function add_polyline_contextmenu(marker) {
 var marker_styles = {
 	"Switch": {
 		iconUrl: 'images/markers/Switch.png',
-		iconAnchor: [42, 10],
-		iconSize: [ 72,15 ]
+		iconAnchor: [25, 70],
+		iconSize: [ 50, 70 ],
+		shadowUrl: 'images/markers/Switch-shadow.png',
+		shadowSize: [ 100, 70],
+		shadowAnchor: [ 25, 70 ]
 	},
 	"AP": {
 		iconUrl: 'images/markers/AP.png',
-		iconSize: [ 50,54 ],
-		iconAnchor: [ 25, 54],
+		iconSize: [ 50,97 ],
+		iconAnchor: [ 25, 97],
 		shadowUrl: 'images/markers/AP-shadow.png',
-		shadowSize: [ 61, 54 ],
-		shadowAnchor: [ 26, 54 ],
+		shadowSize: [ 100, 70 ],
+		shadowAnchor: [ 25, 70 ],
 	},
 	"Patchroom": {
 		iconUrl: 'images/markers/Patchroom.png',
-		iconSize: [ 25, 43 ],
-		iconAnchor: [ 13, 42 ],
+		iconSize: [ 50, 106 ],
+		iconAnchor: [ 25, 106 ],
 		shadowUrl: 'images/markers/Patchroom-shadow.png',
-		shadowSize: [ 40, 43 ],
-		shadowAnchor: [ 11, 42 ],
+		shadowSize: [ 100, 70 ],
+		shadowAnchor: [ 25, 70 ],
 	}
 };
 
@@ -451,7 +454,7 @@ function move_marker(marker) {
 /* other functionality */
 var marker_labels_no_hide = false;
 function marker_labels_calc_nohide(e) {
-	marker_labels_no_hide = (map.getZoom() >= 3);
+	marker_labels_no_hide = (map.getZoom() >= 5);
 	$.each(layers, function(layer_name, layer_group) {
 		var drawing_layer;
 

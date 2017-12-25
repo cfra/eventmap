@@ -28,7 +28,7 @@ function active_layer_info() {
 function eventmap_send_update() {
 	var update_doc = {
 		'sync-id': marker_store_sync_id,
-		'version': '23.0',
+		'version': '23.1',
 		'markers': {}
 	};
 
@@ -53,6 +53,7 @@ function eventmap_send_update() {
 			marker_info.lat = marker.getLatLng().lat;
 			marker_info.lng = marker.getLatLng().lng;
 			marker_info.layer = marker.options.layer_name;
+			marker_info.type = marker.options.type;
 		}
 	});
 
@@ -146,6 +147,9 @@ function eventmap_process_update(data) {
 		if (marker_name.startsWith("__polyline"))
 			return process_polyline_update(marker_name, marker_info);
 
+		if (marker_info.type === undefined) {
+			marker_info.type = 'Switch';
+		}
 		/* Regular marker */
 		if (marker_name in marker_store) {
 			var marker = marker_store[marker_name];
@@ -166,6 +170,9 @@ function eventmap_process_update(data) {
 				new_draw.addLayer(marker);
 				marker.options.layer_name = marker_info.layer;
 			}
+			if (marker.options.type != marker_info.type) {
+				marker_set_type(marker, marker_info.type);
+			}
 			marker.options.sync_id = marker_store_sync_id;
 			console.log("Kept marker '" + marker_name + "'.");
 		} else {
@@ -178,6 +185,7 @@ function eventmap_process_update(data) {
 
 			add_contextmenu(marker);
 
+			marker_set_type(marker, marker_info.type);
 			marker.options.label_text = marker_name;
 			marker.updateLabelContent(marker.options.label_text);
 			marker_store[marker_name] = marker;
@@ -272,6 +280,41 @@ function add_polyline_contextmenu(marker) {
 	});
 }
 
+var marker_styles = {
+	"Switch": {
+		iconUrl: 'images/markers/Switch.png',
+		iconAnchor: [42, 10],
+		iconSize: [ 72,15 ]
+	},
+	"AP": {
+		iconUrl: 'images/markers/AP.png',
+		iconSize: [ 50,54 ],
+		iconAnchor: [ 25, 54],
+		shadowUrl: 'images/markers/AP-shadow.png',
+		shadowSize: [ 61, 54 ],
+		shadowAnchor: [ 26, 54 ],
+	},
+	"Patchroom": {
+		iconUrl: 'images/markers/Patchroom.png',
+		iconSize: [ 25, 43 ],
+		iconAnchor: [ 13, 42 ],
+		shadowUrl: 'images/markers/Patchroom-shadow.png',
+		shadowSize: [ 40, 43 ],
+		shadowAnchor: [ 11, 42 ],
+	}
+};
+
+var marker_icons = {};
+$.each(marker_styles, function(type_name, type_options) {
+	marker_icons[type_name] = L.icon(type_options);
+});
+
+function marker_set_type(marker, type) {
+	marker.setIcon(marker_icons[type]);
+	marker.options.type = type;
+};
+
+
 function add_contextmenu(marker) {
 	if (marker.options.label_text !== undefined
 	    && marker.options.label_text.startsWith("__polyline"))
@@ -298,6 +341,15 @@ function add_contextmenu(marker) {
 			}
 		},
 	];
+	$.each(marker_styles, function(type_name, type_options) {
+		marker.options.contextmenuItems.push({
+			text: type_name + ' -> Type',
+			callback: function() {
+				marker_set_type(marker, type_name);
+				eventmap_send_update();
+			}
+		});
+	});
 	$.each(layers, function(layer_name, layer_object) {
 		marker.options.contextmenuItems.push({
 			text: 'Send to ' + layer_name,

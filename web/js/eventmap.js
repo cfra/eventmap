@@ -608,21 +608,33 @@ $(function() {
 		var first_layer = true;
 		$.each(data, function(layer_index, layer_info) {
 			var layer_path;
+			var layer_options;
 			var base_layer;
 			var drawing_layer;
 			var layer;
 			
-			layer_path = 'images/tiles/' + layer_info.name
-			        	+ '/{z}/{x}/{y}.png';
-			var layer_opacity = layer_info.opacity;
-			if (layer_opacity === undefined)
-				layer_opacity = 1.0;
-			base_layer = L.tileLayer(layer_path, {
-				noWrap: true,
-				continuousWorld: true,
-				maxZoom: layer_info.max_zoom,
-				opacity: layer_opacity
-			});
+			if (layer_info.url === undefined) {
+				layer_path = 'images/tiles/' + layer_info.name
+						+ '/{z}/{x}/{y}.png';
+			} else {
+				layer_path = layer_info.url;
+			}
+
+			if (layer_info.options === undefined) {
+				var layer_opacity = layer_info.opacity;
+				if (layer_opacity === undefined)
+					layer_opacity = 1.0;
+				layer_options = {
+					noWrap: true,
+					continuousWorld: true,
+					maxZoom: layer_info.max_zoom,
+					opacity: layer_opacity
+				};
+			} else {
+				layer_options = layer_info.options;
+			}
+
+			base_layer = L.tileLayer(layer_path, layer_options);
 
 			drawing_layer = new L.FeatureGroup();
 

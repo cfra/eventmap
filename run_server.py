@@ -133,6 +133,12 @@ if __name__ == '__main__':
         }
     })
 
-    cherrypy.engine.signals.subscribe()
+    if hasattr(cherrypy.engine, "signals"):
+        cherrypy.engine.signals.subscribe()
+    else:
+        if hasattr(cherrypy.engine, "signal_handler"):
+            cherrypy.engine.signal_handler.subscribe()
+        if hasattr(cherrypy.engine, "console_control_handler"):
+            cherrypy.engine.console_control_handler.subscribe()
     cherrypy.engine.start()
     cherrypy.engine.block()

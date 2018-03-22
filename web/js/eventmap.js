@@ -512,14 +512,9 @@ L.GeometryUtil.readableDistance = function(distance, unit) {
 	return old_readable_distance(distance/divider,unit);
 };
 
-$(function() {
+function map_init(map_options) {
 	$("#progress").html("Initializing map...");
-	map = L.map('map', {
-		center: new L.LatLng(80,-120),
-		contextmenu: true,
-		continuousWorld: true,
-		zoom: 4
-	});
+	map = L.map('map', map_options);
 
 	map.on('zoomend', marker_labels_calc_nohide);
 
@@ -607,6 +602,21 @@ $(function() {
 		$("#progress").html("Creating layers...");
 		var first_layer = true;
 		$.each(data, function(layer_index, layer_info) {
+			if (layer_index == 0) {
+				var metadata = false;
+				if (layer_info.zoom !== undefined) {
+					map.setZoom(layer_info.zoom);
+					metadata = true;
+				}
+				if (layer_info.center !== undefined) {
+					map.panTo(new L.LatLng(layer_info.center[0],
+							       layer_info.center[1]));
+					metadata = true;
+				}
+				if (metadata)
+					return true;
+			}
+
 			var layer_path;
 			var layer_options;
 			var base_layer;
@@ -679,5 +689,23 @@ $(function() {
 			$("#progress").html("Error retrieving marker info," +
 				            " please retry.");
 		});
+	});
+}
+
+$(function() {
+	var map_options = {
+		center: new L.LatLng(80,-120),
+		contextmenu: true,
+		continuousWorld: true,
+		zoom: 4
+	};
+
+	$.getJSON('js/map.json', function(data) {
+		if (data.zoom !== undefined)
+			map_options.zoom = data.zoom;
+		if (data.center !== undefined)
+			map_options.center = new L.LatLng(data.center[0], data.center[1]);
+	}).always(function() {
+		map_init(map_options)
 	});
 });

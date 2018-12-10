@@ -678,7 +678,7 @@ function map_init(map_options) {
 	});
 }
 
-$(function() {
+function load_map_settings() {
 	var map_options = {
 		center: new L.LatLng(80,-120),
 		contextmenu: true,
@@ -693,5 +693,13 @@ $(function() {
 			map_options.center = new L.LatLng(data.center[0], data.center[1]);
 	}).always(function() {
 		map_init(map_options)
+	});
+}
+
+$(function() {
+	$.getJSON('js/polyline_styles.json', function(data) {
+		polyline_styles = data;
+	}).always(function() {
+		load_map_settings();
 	});
 });

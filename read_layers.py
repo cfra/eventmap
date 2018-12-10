@@ -37,6 +37,7 @@ class Layer(object):
         self._x_offset = info.get('x-offset', 0.0)
         self._y_offset = info.get('y-offset', 0.0)
         self._rotate = info.get('rotate', 0.0)
+        self.invert = info.get('invert', False)
 
         self._load_file(path)
 
@@ -193,6 +194,12 @@ class TileGenerator(object):
                         tile_context.set_source_rgba(1.0, 1.0, 1.0, 1.0)
                         tile_context.paint()
                         layer.draw(tile_context)
+
+                    if layer.invert:
+                        tile_context.set_source_rgba(1.0, 1.0, 1.0, 1.0)
+                        tile_context.set_operator(23) # cairo.OPERATOR_DIFFERENCE is not defined
+                        tile_context.paint()
+                        tile_context.set_operator(cairo.OPERATOR_OVER)
 
                     tile_surface.write_to_png(tile_path)
 

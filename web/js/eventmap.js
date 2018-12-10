@@ -231,52 +231,38 @@ function delete_marker(marker) {
 }
 
 function add_polyline_contextmenu(marker) {
-	/* TODO: Generated menu from polyline styles */
+	context_menu_items = [
+		{
+			text: 'Delete',
+			callback: function() {
+				delete_marker(marker);
+			}
+		}
+	];
+
+	$.each(polyline_styles, function(style_name, style_info) {
+		context_menu_items.push({
+			text: style_name + ' -> Type',
+			callback: function() {
+				polyline_set_type(marker, style_name);
+				eventmap_send_update();
+			}
+		});
+	});
+
+	context_menu_items.push({
+		text: 'Get length',
+		callback: function() {
+			alert(L.GeometryUtil.readableDistance(
+			      polyline_get_length(marker), true));
+		}
+	});
+
+	console.log(context_menu_items);
+
 	marker.bindContextMenu({
 		contextmenu: true,
-		contextmenuItems: [
-			{
-				text: 'Delete',
-				callback: function() {
-					delete_marker(marker);
-				}
-			},
-			{
-				text: 'Power -> Type',
-				callback: function() {
-					polyline_set_type(marker, "Power");
-					eventmap_send_update();
-				}
-			},
-			{
-				text: 'Network -> Type',
-				callback: function() {
-					polyline_set_type(marker, "Network");
-					eventmap_send_update();
-				}
-			},
-			{
-				text: 'Wifi -> Type',
-				callback: function() {
-					polyline_set_type(marker, "Wifi");
-					eventmap_send_update();
-				}
-			},
-			{
-				text: 'Unknown -> Type',
-				callback: function() {
-					polyline_set_type(marker, "Unknown");
-					eventmap_send_update();
-				}
-			},
-			{
-				text: 'Get length',
-				callback: function() {
-					alert(L.GeometryUtil.readableDistance(
-					      polyline_get_length(marker), true));
-				}
-			}
-		]
+		contextmenuItems: context_menu_items
 	});
 }
 

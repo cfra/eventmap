@@ -38,6 +38,8 @@ class Layer(object):
         self._y_offset = info.get('y-offset', 0.0)
         self._rotate = info.get('rotate', 0.0)
         self.invert = info.get('invert', False)
+        self.opacity = info.get('opacity', 1.0)
+        self.divider = info.get('divider', 1.0)
 
         self._load_file(path)
 
@@ -213,7 +215,9 @@ class LayerInfoStore(object):
         for layer in sorted(self.layers):
             document.append({
                 'name': layer.name,
-                'max_zoom': layer.max_zoom_level
+                'max_zoom': layer.max_zoom_level,
+                'divider': layer.divider,
+                'opacity': layer.opacity,
             })
         with open(path, "w") as f:
             json.dump(document, f)

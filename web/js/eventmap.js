@@ -339,6 +339,7 @@ function add_contextmenu(marker) {
 			}
 		});
 	});
+	/*
 	$.each(layers, function(layer_name, layer_object) {
 		marker.options.contextmenuItems.push({
 			text: 'Send to ' + layer_name,
@@ -356,6 +357,7 @@ function add_contextmenu(marker) {
 			}
 		})
 	});
+	*/
 	marker._initContextMenu();
 }
 

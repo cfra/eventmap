@@ -10,10 +10,28 @@ from cStringIO import StringIO
 import hashlib
 import threading
 import json
+import os
 import time
 import sys
+import threading
 
 import cherrypy
+
+ST_RDONLY = 1
+
+class SynchronizedJSONAutoLoader(threading.Thread):
+    def __init__(self, synchronized_json):
+        self._synchronized_json = synchronized_json
+        super(SynchronizedJSONAutoLoader, self).__init__()
+
+    def run(self):
+        print "Autoloader Starting up"
+        time.sleep(2)
+        while cherrypy.engine.state == cherrypy.engine.states.STARTED:
+            time.sleep(1)
+            with self._synchronized_json.lock:
+                self._synchronized_json.load()
+        print "Autoloader Exiting"
 
 class SynchronizedJSON(object):
     def __init__(self, filename):
@@ -25,6 +43,14 @@ class SynchronizedJSON(object):
                 'data': None
             }
             self.load()
+
+        stat = os.statvfs(self._filename)
+        if stat.f_flag & ST_RDONLY:
+            self.start_autoloader()
+
+    def start_autoloader(self):
+        self._autoloader = SynchronizedJSONAutoLoader(self)
+        self._autoloader.start()
 
     def load(self):
         assert self.lock.locked()

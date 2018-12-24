@@ -18,6 +18,16 @@ import cherrypy
 class SynchronizedJSON(object):
     def __init__(self, filename):
         self._filename = filename
+        self.lock = threading.Lock()
+
+        with self.lock:
+            self.cur = {
+                'data': None
+            }
+            self.load()
+
+    def load(self):
+        assert self.lock.locked()
         self._new = {}
         if os.path.exists(self._filename):
             with open(self._filename, 'rb') as f:
@@ -25,10 +35,11 @@ class SynchronizedJSON(object):
         else:
             self._new['data'] = '{}'
 
+        if self.cur['data'] == self._new['data']:
+            return
+
         self._update_sync_id()
         self.cur = self._new
-
-        self.lock = threading.Lock()
 
     def _update_sync_id(self):
         doc = json.loads(self._new['data'])

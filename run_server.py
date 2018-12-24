@@ -44,7 +44,7 @@ class SynchronizedJSON(object):
             }
             self.load()
 
-        stat = os.statvfs(self._filename)
+        stat = os.statvfs(os.path.dirname(self._filename))
         if stat.f_flag & ST_RDONLY:
             self.start_autoloader()
 

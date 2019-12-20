@@ -203,7 +203,7 @@
 
 @media (min-resolution: 100dpi) {
 	.leaflet-container {
-		font: 8mm/1.5 "Helvetica Neue", Arial, Helvetica, sans-serif;
+		font: 10mm/1.5 "Helvetica Neue", Arial, Helvetica, sans-serif;
 	}
 }
 
@@ -299,8 +299,8 @@
 	.leaflet-control-layers-toggle,
 	.leaflet-retina .leaflet-control-layers-toggle,
 	.leaflet-touch .leaflet-control-layers-toggle {
-		width: 16mm;
-		height: 16mm;
+		width: 20mm;
+		height: 20mm;
 	}
 }
 

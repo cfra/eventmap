@@ -1,4 +1,4 @@
-FROM debian:stretch
+FROM python:3.8.1-buster
 MAINTAINER nobody@nowhere.ws
 
 RUN set -x \

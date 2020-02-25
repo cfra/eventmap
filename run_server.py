@@ -6,7 +6,7 @@
 #
 
 import os
-from cStringIO import StringIO
+from io import StringIO
 import hashlib
 import threading
 import json
@@ -25,13 +25,13 @@ class SynchronizedJSONAutoLoader(threading.Thread):
         super(SynchronizedJSONAutoLoader, self).__init__()
 
     def run(self):
-        print "Autoloader Starting up"
+        print("Autoloader Starting up")
         time.sleep(2)
         while cherrypy.engine.state == cherrypy.engine.states.STARTED:
             time.sleep(1)
             with self._synchronized_json.lock:
                 self._synchronized_json.load()
-        print "Autoloader Exiting"
+        print("Autoloader Exiting")
 
 class SynchronizedJSON(object):
     def __init__(self, filename):
@@ -73,7 +73,7 @@ class SynchronizedJSON(object):
             del doc['sync-id']
         hashed_data = json.dumps(doc)
         h = hashlib.sha256()
-        h.update(hashed_data)
+        h.update(hashed_data.encode('utf-8'))
         doc['sync-id'] = h.hexdigest()
         self._new['data'] = json.dumps(doc, indent=4)
         self._new['sync-id'] = h.hexdigest()
@@ -89,7 +89,7 @@ class SynchronizedJSON(object):
         self._update_sync_id()
 
         with open(self._filename + '.new', 'wb') as f:
-            f.write(self._new['data'])
+            f.write(self._new['data'].encode("utf-8"))
             f.flush()
             os.fsync(f.fileno())
         os.rename(self._filename + '.new', self._filename)
@@ -140,7 +140,7 @@ class EventMapApi(object):
         self.markers = EventMapMarkerApi(path)
 
 def test_log(msg, level):
-    print "%s, %s" % (msg, level)
+    print("%s, %s" % (msg, level))
 
 if __name__ == '__main__':
     publish = len(sys.argv) >= 2 and sys.argv[1] == '-P'
@@ -151,7 +151,8 @@ if __name__ == '__main__':
         'server.socket_port': 8023,
         'server.thread_pool_max': 500,
         'server.thread_pool': 100,
-        'log.screen': True
+        'log.screen': True,
+        'tools.encode.text_only': False
     })
 
     cherrypy.tree.mount(None, '/', {

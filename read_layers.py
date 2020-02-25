@@ -37,6 +37,9 @@ class Layer(object):
         self._x_offset = info.get('x-offset', 0.0)
         self._y_offset = info.get('y-offset', 0.0)
         self._rotate = info.get('rotate', 0.0)
+        self.invert = info.get('invert', False)
+        self.opacity = info.get('opacity', 1.0)
+        self.divider = info.get('divider', 1.0)
 
         self._load_file(path)
 
@@ -62,6 +65,8 @@ class Layer(object):
 
 class PdfLayer(Layer):
     def _load_file(self, path):
+        import gi
+        gi.require_version('Poppler', '0.18')
         from gi.repository import Poppler
         document = Poppler.Document.new_from_file('file://{0}'.format(path), None)
         self._page = document.get_page(0)
@@ -101,7 +106,8 @@ class LayerLoader(object):
     def load(self, layer_path):
         layers = []
         for layer_file in os.listdir(layer_path):
-            if layer_file.endswith('.txt'):
+            if layer_file.endswith('.txt') \
+                    or layer_file.endswith('.sh'):
                 continue
             layer_file = os.path.join(layer_path, layer_file)
             layers.append(self.read(layer_file))
@@ -191,6 +197,12 @@ class TileGenerator(object):
                         tile_context.paint()
                         layer.draw(tile_context)
 
+                    if layer.invert:
+                        tile_context.set_source_rgba(1.0, 1.0, 1.0, 1.0)
+                        tile_context.set_operator(23) # cairo.OPERATOR_DIFFERENCE is not defined
+                        tile_context.paint()
+                        tile_context.set_operator(cairo.OPERATOR_OVER)
+
                     tile_surface.write_to_png(tile_path)
 
 
@@ -203,7 +215,9 @@ class LayerInfoStore(object):
         for layer in sorted(self.layers):
             document.append({
                 'name': layer.name,
-                'max_zoom': layer.max_zoom_level
+                'max_zoom': layer.max_zoom_level,
+                'divider': layer.divider,
+                'opacity': layer.opacity,
             })
         with open(path, "w") as f:
             json.dump(document, f)

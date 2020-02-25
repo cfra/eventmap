@@ -28,7 +28,7 @@ function active_layer_info() {
 function eventmap_send_update() {
 	var update_doc = {
 		'sync-id': marker_store_sync_id,
-		'version': '23.0',
+		'version': '23.1',
 		'markers': {}
 	};
 
@@ -53,6 +53,7 @@ function eventmap_send_update() {
 			marker_info.lat = marker.getLatLng().lat;
 			marker_info.lng = marker.getLatLng().lng;
 			marker_info.layer = marker.options.layer_name;
+			marker_info.type = marker.options.type;
 		}
 	});
 
@@ -146,6 +147,9 @@ function eventmap_process_update(data) {
 		if (marker_name.startsWith("__polyline"))
 			return process_polyline_update(marker_name, marker_info);
 
+		if (marker_info.type === undefined) {
+			marker_info.type = 'Switch';
+		}
 		/* Regular marker */
 		if (marker_name in marker_store) {
 			var marker = marker_store[marker_name];
@@ -166,6 +170,9 @@ function eventmap_process_update(data) {
 				new_draw.addLayer(marker);
 				marker.options.layer_name = marker_info.layer;
 			}
+			if (marker.options.type != marker_info.type) {
+				marker_set_type(marker, marker_info.type);
+			}
 			marker.options.sync_id = marker_store_sync_id;
 			console.log("Kept marker '" + marker_name + "'.");
 		} else {
@@ -178,6 +185,7 @@ function eventmap_process_update(data) {
 
 			add_contextmenu(marker);
 
+			marker_set_type(marker, marker_info.type);
 			marker.options.label_text = marker_name;
 			marker.updateLabelContent(marker.options.label_text);
 			marker_store[marker_name] = marker;
@@ -223,54 +231,78 @@ function delete_marker(marker) {
 }
 
 function add_polyline_contextmenu(marker) {
-	/* TODO: Generated menu from polyline styles */
+	context_menu_items = [
+		{
+			text: 'Delete',
+			callback: function() {
+				delete_marker(marker);
+			}
+		}
+	];
+
+	$.each(polyline_styles, function(style_name, style_info) {
+		context_menu_items.push({
+			text: style_name + ' -> Type',
+			callback: function() {
+				polyline_set_type(marker, style_name);
+				eventmap_send_update();
+			}
+		});
+	});
+
+	context_menu_items.push({
+		text: 'Get length',
+		callback: function() {
+			alert(L.GeometryUtil.readableDistance(
+			      polyline_get_length(marker), true));
+		}
+	});
+
+	console.log(context_menu_items);
+
 	marker.bindContextMenu({
 		contextmenu: true,
-		contextmenuItems: [
-			{
-				text: 'Delete',
-				callback: function() {
-					delete_marker(marker);
-				}
-			},
-			{
-				text: 'Power -> Type',
-				callback: function() {
-					polyline_set_type(marker, "Power");
-					eventmap_send_update();
-				}
-			},
-			{
-				text: 'Network -> Type',
-				callback: function() {
-					polyline_set_type(marker, "Network");
-					eventmap_send_update();
-				}
-			},
-			{
-				text: 'Wifi -> Type',
-				callback: function() {
-					polyline_set_type(marker, "Wifi");
-					eventmap_send_update();
-				}
-			},
-			{
-				text: 'Unknown -> Type',
-				callback: function() {
-					polyline_set_type(marker, "Unknown");
-					eventmap_send_update();
-				}
-			},
-			{
-				text: 'Get length',
-				callback: function() {
-					alert(L.GeometryUtil.readableDistance(
-					      polyline_get_length(marker), true));
-				}
-			}
-		]
+		contextmenuItems: context_menu_items
 	});
 }
+
+var marker_styles = {
+	"Switch": {
+		iconUrl: 'images/markers/Switch.png',
+		iconAnchor: [25, 70],
+		iconSize: [ 50, 70 ],
+		shadowUrl: 'images/markers/Switch-shadow.png',
+		shadowSize: [ 100, 70],
+		shadowAnchor: [ 25, 70 ]
+	},
+	"AP": {
+		iconUrl: 'images/markers/AP.png',
+		iconSize: [ 50,97 ],
+		iconAnchor: [ 25, 97],
+		shadowUrl: 'images/markers/AP-shadow.png',
+		shadowSize: [ 100, 70 ],
+		shadowAnchor: [ 25, 70 ],
+	},
+	"Patchroom": {
+		iconUrl: 'images/markers/Patchroom.png',
+		iconSize: [ 50, 106 ],
+		iconAnchor: [ 25, 106 ],
+		shadowUrl: 'images/markers/Patchroom-shadow.png',
+		shadowSize: [ 100, 70 ],
+		shadowAnchor: [ 25, 70 ],
+	}
+};
+
+var marker_icons = {};
+$.each(marker_styles, function(type_name, type_options) {
+	marker_icons[type_name] = L.icon(type_options);
+});
+
+function marker_set_type(marker, type) {
+	marker.setIcon(marker_icons[type]);
+	marker.options.type = type;
+};
+
 
 function add_contextmenu(marker) {
 	if (marker.options.label_text !== undefined
@@ -298,6 +330,16 @@ function add_contextmenu(marker) {
 			}
 		},
 	];
+	$.each(marker_styles, function(type_name, type_options) {
+		marker.options.contextmenuItems.push({
+			text: type_name + ' -> Type',
+			callback: function() {
+				marker_set_type(marker, type_name);
+				eventmap_send_update();
+			}
+		});
+	});
+	/*
 	$.each(layers, function(layer_name, layer_object) {
 		marker.options.contextmenuItems.push({
 			text: 'Send to ' + layer_name,
@@ -315,6 +357,7 @@ function add_contextmenu(marker) {
 			}
 		})
 	});
+	*/
 	marker._initContextMenu();
 }
 
@@ -399,7 +442,7 @@ function move_marker(marker) {
 /* other functionality */
 var marker_labels_no_hide = false;
 function marker_labels_calc_nohide(e) {
-	marker_labels_no_hide = (map.getZoom() >= 3);
+	marker_labels_no_hide = (map.getZoom() >= 5);
 	$.each(layers, function(layer_name, layer_group) {
 		var drawing_layer;
 
@@ -457,14 +500,9 @@ L.GeometryUtil.readableDistance = function(distance, unit) {
 	return old_readable_distance(distance/divider,unit);
 };
 
-$(function() {
+function map_init(map_options) {
 	$("#progress").html("Initializing map...");
-	map = L.map('map', {
-		center: new L.LatLng(70,-50),
-		contextmenu: true,
-		continuousWorld: true,
-		zoom: 2
-	});
+	map = L.map('map', map_options);
 
 	map.on('zoomend', marker_labels_calc_nohide);
 
@@ -552,22 +590,49 @@ $(function() {
 		$("#progress").html("Creating layers...");
 		var first_layer = true;
 		$.each(data, function(layer_index, layer_info) {
+			if (layer_index == 0) {
+				var metadata = false;
+				if (layer_info.zoom !== undefined) {
+					map.setZoom(layer_info.zoom);
+					metadata = true;
+				}
+				if (layer_info.center !== undefined) {
+					map.panTo(new L.LatLng(layer_info.center[0],
+							       layer_info.center[1]));
+					metadata = true;
+				}
+				if (metadata)
+					return true;
+			}
+
 			var layer_path;
+			var layer_options;
 			var base_layer;
 			var drawing_layer;
 			var layer;
 			
-			layer_path = 'images/tiles/' + layer_info.name
-			        	+ '/{z}/{x}/{y}.png';
-			var layer_opacity = layer_info.opacity;
-			if (layer_opacity === undefined)
-				layer_opacity = 1.0;
-			base_layer = L.tileLayer(layer_path, {
-				noWrap: true,
-				continuousWorld: true,
-				maxZoom: layer_info.max_zoom,
-				opacity: layer_opacity
-			});
+			if (layer_info.url === undefined) {
+				layer_path = 'images/tiles/' + layer_info.name
+						+ '/{z}/{x}/{y}.png';
+			} else {
+				layer_path = layer_info.url;
+			}
+
+			if (layer_info.options === undefined) {
+				var layer_opacity = layer_info.opacity;
+				if (layer_opacity === undefined)
+					layer_opacity = 1.0;
+				layer_options = {
+					noWrap: true,
+					continuousWorld: true,
+					maxZoom: layer_info.max_zoom,
+					opacity: layer_opacity
+				};
+			} else {
+				layer_options = layer_info.options;
+			}
+
+			base_layer = L.tileLayer(layer_path, layer_options);
 
 			drawing_layer = new L.FeatureGroup();
 
@@ -612,5 +677,31 @@ $(function() {
 			$("#progress").html("Error retrieving marker info," +
 				            " please retry.");
 		});
+	});
+}
+
+function load_map_settings() {
+	var map_options = {
+		center: new L.LatLng(80,-120),
+		contextmenu: true,
+		continuousWorld: true,
+		zoom: 4
+	};
+
+	$.getJSON('js/map.json', function(data) {
+		if (data.zoom !== undefined)
+			map_options.zoom = data.zoom;
+		if (data.center !== undefined)
+			map_options.center = new L.LatLng(data.center[0], data.center[1]);
+	}).always(function() {
+		map_init(map_options)
+	});
+}
+
+$(function() {
+	$.getJSON('js/polyline_styles.json', function(data) {
+		polyline_styles = data;
+	}).always(function() {
+		load_map_settings();
 	});
 });

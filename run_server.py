@@ -10,14 +10,50 @@ from cStringIO import StringIO
 import hashlib
 import threading
 import json
+import os
 import time
+import sys
+import threading
 
 import cherrypy
-from cherrypy.lib import auth_digest
+
+ST_RDONLY = 1
+
+class SynchronizedJSONAutoLoader(threading.Thread):
+    def __init__(self, synchronized_json):
+        self._synchronized_json = synchronized_json
+        super(SynchronizedJSONAutoLoader, self).__init__()
+
+    def run(self):
+        print "Autoloader Starting up"
+        time.sleep(2)
+        while cherrypy.engine.state == cherrypy.engine.states.STARTED:
+            time.sleep(1)
+            with self._synchronized_json.lock:
+                self._synchronized_json.load()
+        print "Autoloader Exiting"
 
 class SynchronizedJSON(object):
     def __init__(self, filename):
         self._filename = filename
+        self.lock = threading.Lock()
+
+        with self.lock:
+            self.cur = {
+                'data': None
+            }
+            self.load()
+
+        stat = os.statvfs(os.path.dirname(self._filename))
+        if stat.f_flag & ST_RDONLY:
+            self.start_autoloader()
+
+    def start_autoloader(self):
+        self._autoloader = SynchronizedJSONAutoLoader(self)
+        self._autoloader.start()
+
+    def load(self):
+        assert self.lock.locked()
         self._new = {}
         if os.path.exists(self._filename):
             with open(self._filename, 'rb') as f:
@@ -25,10 +61,11 @@ class SynchronizedJSON(object):
         else:
             self._new['data'] = '{}'
 
+        if self.cur['data'] == self._new['data']:
+            return
+
         self._update_sync_id()
         self.cur = self._new
-
-        self.lock = threading.Lock()
 
     def _update_sync_id(self):
         doc = json.loads(self._new['data'])
@@ -92,7 +129,7 @@ class EventMapMarkerApi(object):
         with self.marker_doc.lock:
             if self.marker_doc.cur['sync-id'] != doc['sync-id']:
                 raise cherrypy.HTTPError(503, "Sorry, but the server database changed in between.")
-            if 'version' not in doc or doc['version'] != '23.0':
+            if 'version' not in doc or doc['version'] != '23.1':
                 raise cherrypy.HTTPError(503, "Sorry, but your local script is out of date. Please reload.")
             self.marker_doc.set_data(data)
         cherrypy.response.headers['Content-Type']= 'application/json'
@@ -106,13 +143,11 @@ def test_log(msg, level):
     print "%s, %s" % (msg, level)
 
 if __name__ == '__main__':
-
-    USERS = {'username' : 'password'}
-
+    publish = len(sys.argv) >= 2 and sys.argv[1] == '-P'
     current_dir = os.path.dirname(os.path.abspath(__file__))
     cherrypy.engine.subscribe('log', test_log)
     cherrypy.config.update({
-        'server.socket_host': '127.0.0.1',
+        'server.socket_host': '0.0.0.0' if publish else '127.0.0.1',
         'server.socket_port': 8023,
         'server.thread_pool_max': 500,
         'server.thread_pool': 100,
@@ -124,20 +159,23 @@ if __name__ == '__main__':
             'tools.staticdir.on': True,
             'tools.staticdir.dir': os.path.join(current_dir, 'web'),
             'tools.staticdir.index': 'index.html',
-            'tools.auth_digest.on': True,
-            'tools.auth_digest.realm': 'eventmap',
-            'tools.auth_digest.get_ha1': auth_digest.get_ha1_dict_plain(USERS),
-            'tools.auth_digest.key': '640f0d950828cc65'
         }
     })
 
-    cherrypy.tree.mount(EventMapApi(current_dir), '/api', {
+    data_dir = os.path.join(current_dir, 'data') if publish else current_dir
+    cherrypy.tree.mount(EventMapApi(data_dir), '/api', {
         '/': {
             'response.timeout': 600,
             'response.stream': True
         }
     })
 
-    cherrypy.engine.signals.subscribe()
+    if hasattr(cherrypy.engine, "signals"):
+        cherrypy.engine.signals.subscribe()
+    else:
+        if hasattr(cherrypy.engine, "signal_handler"):
+            cherrypy.engine.signal_handler.subscribe()
+        if hasattr(cherrypy.engine, "console_control_handler"):
+            cherrypy.engine.console_control_handler.subscribe()
     cherrypy.engine.start()
     cherrypy.engine.block()

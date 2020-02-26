@@ -1,22 +1,21 @@
-FROM python:3.8.1-buster
+FROM debian:buster
 MAINTAINER nobody@nowhere.ws
 
 RUN set -x \
 	&& apt-get update && apt-get install -y --no-install-recommends \
 		gir1.2-poppler-0.18 \
-		python-cairo \
-		python-gi \
-		python-gi-cairo \
-		python-gobject \
-		python-pip \
-		python-setuptools \
-		python-wheel
+		python3-cairo \
+		python3-gi \
+		python3-gi-cairo \
+		python3-pip \
+		python3-setuptools \
+		python3-wheel
 
 RUN mkdir /srv/eventmap
 WORKDIR /srv/eventmap
 COPY requirements.txt /srv/eventmap/requirements.txt
 
-RUN pip install -r requirements.txt
+RUN pip3 install -r requirements.txt
 
 COPY ./ /srv/eventmap
 

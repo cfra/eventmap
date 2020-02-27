@@ -59,8 +59,8 @@ class Layer(object):
     def _load_file(self, path):
         raise NotImplementedError
 
-    def __cmp__(self, other):
-        return cmp(self.name, other.name)
+    def __lt__(self, other):
+        return self.name < other.name
 
 
 class PdfLayer(Layer):

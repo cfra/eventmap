@@ -21,6 +21,6 @@ COPY ./ /srv/eventmap
 
 VOLUME [ "/srv/eventmap/data" ]
 
-CMD [ "python", "run_server.py", "-P" ]
+CMD [ "python3", "run_server.py", "-P" ]
 
 EXPOSE 8023

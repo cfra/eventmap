@@ -8,8 +8,10 @@
 #
 
 import cairo
+import fitz
 import json
 import math
+import io
 import os
 import shutil
 import stat
@@ -62,31 +64,7 @@ class Layer(object):
     def __lt__(self, other):
         return self.name < other.name
 
-
-class PdfLayer(Layer):
-    def _load_file(self, path):
-        import gi
-        gi.require_version('Poppler', '0.18')
-        from gi.repository import Poppler
-        document = Poppler.Document.new_from_file('file://{0}'.format(path), None)
-        self._page = document.get_page(0)
-
-    @property
-    def _orig_width(self):
-        return self._page.get_size()[0]
-
-    @property
-    def _orig_height(self):
-        return self._page.get_size()[1]
-
-    def draw(self, context):
-        super(PdfLayer, self).draw(context)
-        self._page.render(context)
-
-
-class PngLayer(Layer):
-    def _load_file(self, path):
-        self._image = cairo.ImageSurface.create_from_png(path)
+class ImageLayer(Layer):
 
     @property
     def _orig_width(self):
@@ -97,9 +75,21 @@ class PngLayer(Layer):
         return self._image.get_height()
 
     def draw(self, context):
-        super(PngLayer, self).draw(context)
+        super().draw(context)
         context.set_source_surface(self._image)
         context.paint()
+
+
+class PdfLayer(ImageLayer):
+    def _load_file(self, path):
+        document = fitz.open(path)
+        image = io.BytesIO(document.loadPage(0).getPixmap().getPNGData())
+        self._image = cairo.ImageSurface.create_from_png(image)
+
+
+class PngLayer(ImageLayer):
+    def _load_file(self, path):
+        self._image = cairo.ImageSurface.create_from_png(path)
 
 
 class LayerLoader(object):

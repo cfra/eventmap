@@ -59,9 +59,6 @@ class Layer(object):
     def _load_file(self, path):
         raise NotImplementedError
 
-    def __cmp__(self, other):
-        return cmp(self.name, other.name)
-
 
 class PdfLayer(Layer):
     def _load_file(self, path):
@@ -212,7 +209,7 @@ class LayerInfoStore(object):
 
     def store(self, path):
         document = []
-        for layer in sorted(self.layers):
+        for layer in sorted(self.layers, key=lambda layer:layer.name):
             document.append({
                 'name': layer.name,
                 'max_zoom': layer.max_zoom_level,
